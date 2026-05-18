@@ -11,11 +11,6 @@ export const initChromaCollections = async () => {
       },
     });
 
-    // console.log(
-    //   `[ChromaDB] Collection "pdf_chunks" ready — ` +
-    //   `${await collection.count()} chunks currently stored`
-    // );
-
     return collection;
 
   } catch (error) {

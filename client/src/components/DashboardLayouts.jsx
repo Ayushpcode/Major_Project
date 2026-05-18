@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
+import useAuthStore from "../store/UserSlice";
 
 const navItems = [
     { label: "Dashboard", path: "/dashboard" },
     { label: "Upload PDF", path: "/dashboard/upload" },
-    { label: "Chat",       path: "/dashboard/chat" },
+    { label: "Chat",       path: "/dashboard/chat/:id" },
 ];
 
 const NavBtn = ({ label, path, active }) => (
@@ -21,6 +22,11 @@ const NavBtn = ({ label, path, active }) => (
 export default function DashboardLayout() {
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const { user, logout } = useAuthStore();
+
+    // "Sarah Chen" → "SC"
+    const getInitials = (name = "") =>
+        name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
     const isActive = (path) => {
         if (path === "/dashboard") return location.pathname === "/dashboard";
@@ -72,13 +78,13 @@ export default function DashboardLayout() {
 
                     {/* Logout pinned to bottom */}
                     <div className="pt-4 border-t border-gray-800">
-                        <Link
-                            to="/logout"
+                        <button
+                            onClick={logout}
                             className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 w-full text-left text-gray-400 hover:text-white hover:bg-gray-800"
                         >
                             <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-gray-600" />
                             Logout
-                        </Link>
+                        </button>
                     </div>
                 </aside>
 
@@ -122,11 +128,13 @@ export default function DashboardLayout() {
                             {/* User */}
                             <div className="flex items-center gap-2 sm:gap-3">
                                 <div className="text-right hidden md:block">
-                                    <p className="text-sm font-semibold text-gray-900 leading-none">Sarah Chen</p>
-                                    <p className="text-xs text-gray-400 mt-0.5">Senior Partner</p>
+                                    <p className="text-sm font-semibold text-gray-900 leading-none">
+                                        {user?.name || "User"}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-0.5">{user?.email || ""}</p>
                                 </div>
                                 <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0">
-                                    SC
+                                    {getInitials(user?.name || "U")}
                                 </div>
                             </div>
                         </div>

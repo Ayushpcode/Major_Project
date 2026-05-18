@@ -8,7 +8,12 @@ export default function UploadPDF() {
   const inputRef = useRef(null);
   const navigate = useNavigate();
 
-  // redirect after success animation
+  // Reset store every time this page mounts so second upload works
+  useEffect(() => {
+    reset();
+  }, []);
+
+  // Redirect after success
   useEffect(() => {
     if (done && documentId) {
       const timer = setTimeout(() => {
@@ -39,7 +44,6 @@ export default function UploadPDF() {
 
   const onDragOver = (e) => { e.preventDefault(); setDragging(true); };
   const onDragLeave = () => setDragging(false);
-
   const formatSize = (bytes) => (bytes / (1024 * 1024)).toFixed(2) + " MB";
 
   return (
@@ -53,7 +57,7 @@ export default function UploadPDF() {
           0%, 100% { border-color: #3b82f6; }
           50%       { border-color: #93c5fd; }
         }
-        @keyframes bounce-icon {
+        @keyframes bounceIcon {
           0%, 100% { transform: translateY(0); }
           50%       { transform: translateY(-6px); }
         }
@@ -62,10 +66,19 @@ export default function UploadPDF() {
           70%  { transform: scale(1.2); }
           100% { transform: scale(1); opacity: 1; }
         }
-        .animate-fade-up    { animation: fadeUp 0.5s ease both; }
-        .animate-bounce-icon { animation: bounce-icon 1.2s ease-in-out infinite; }
-        .animate-check-pop  { animation: checkPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
-        .drag-active        { animation: pulse-border 1s ease-in-out infinite; }
+        @keyframes progressShimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .animate-fade-up     { animation: fadeUp 0.5s ease both; }
+        .animate-bounce-icon { animation: bounceIcon 1.2s ease-in-out infinite; }
+        .animate-check-pop   { animation: checkPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+        .drag-active         { animation: pulse-border 1s ease-in-out infinite; }
+        .progress-bar {
+          background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 40%, #93c5fd 60%, #3b82f6 100%);
+          background-size: 200% 100%;
+          animation: progressShimmer 1.5s linear infinite;
+        }
       `}</style>
 
       <div className="fixed inset-0 bg-gray-100 flex flex-col items-center justify-center px-4 overflow-hidden">
@@ -154,7 +167,6 @@ export default function UploadPDF() {
                   </div>
                 )}
 
-                {/* Drag overlay */}
                 {dragging && (
                   <div className="absolute inset-0 rounded-2xl bg-blue-50/60 flex items-center justify-center">
                     <p className="text-blue-500 font-bold text-lg">Release to drop</p>
@@ -179,9 +191,9 @@ export default function UploadPDF() {
                     <span>Uploading…</span>
                     <span>{Math.round(progress)}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
                     <div
-                      className="h-2 bg-blue-500 rounded-full transition-all duration-200 ease-out"
+                      className="h-2.5 rounded-full progress-bar transition-all duration-300 ease-out"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
@@ -190,7 +202,7 @@ export default function UploadPDF() {
                       <div
                         key={i}
                         className="w-1.5 h-1.5 rounded-full bg-blue-400"
-                        style={{ animation: `bounce-icon 1s ease-in-out infinite`, animationDelay: `${i * 0.15}s` }}
+                        style={{ animation: `bounceIcon 1s ease-in-out infinite`, animationDelay: `${i * 0.15}s` }}
                       />
                     ))}
                   </div>
@@ -201,6 +213,7 @@ export default function UploadPDF() {
               {!uploading && (
                 <button
                   onClick={uploadFile}
+                  disabled={!file}
                   className={`mt-5 w-full py-3 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-[0.98]
                     ${file
                       ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-200"

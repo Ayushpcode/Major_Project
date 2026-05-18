@@ -1,27 +1,19 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useParams } from "react-router-dom";
+import useChatStore from "../store/ChatStore";
 
-const DOCS = [
-  { name: "Project Proposal.pdf", ext: "pdf" },
-  { name: "Meeting Notes.docx", ext: "docx" },
-  { name: "Budget Report.xlsx", ext: "xlsx" },
-];
+// ─── Icons ────────────────────────────────────────────────────────────────────
 
-const AI_REPLIES = [
-  "Based on my analysis of Project_Proposal.pdf, the document outlines a 6-month roadmap with three key phases: discovery, development, and deployment.",
-  "The proposal mentions a total budget of $240,000, with 60% allocated to engineering and 25% to design and research.",
-  "I found several risk factors in section 4: timeline dependencies on third-party APIs and potential scope creep in phase 2.",
-  "The key stakeholders identified are the product team, engineering leads, and two external consultants.",
-  "According to the executive summary, the primary goal is to reduce customer onboarding time by 40% within the first quarter post-launch.",
-];
+function SendIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
-const CHIPS = [
-  "Summarize this document",
-  "Extract key points",
-  "Find any risks mentioned",
-  "What are the main conclusions?",
-];
-
-function FileIcon({ ext }) {
+function FileIcon({ ext = "pdf" }) {
   const colors = { pdf: "#e24b4a", docx: "#378add", xlsx: "#639922" };
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -34,14 +26,16 @@ function FileIcon({ ext }) {
   );
 }
 
-function SendIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path d="M22 2L11 13" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const CHIPS = [
+  "Summarize this document",
+  "Extract key points",
+  "Find any risks mentioned",
+  "What are the main conclusions?",
+];
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function TypingIndicator() {
   return (
@@ -105,59 +99,58 @@ function Message({ msg }) {
           ? "bg-gray-900 text-white rounded-br-sm"
           : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm"
       }`}>
-        {msg.text}
+        <p className="whitespace-pre-wrap break-words">{msg.text}</p>
       </div>
       <span className="text-xs text-gray-400 px-1">{msg.time}</span>
     </div>
   );
 }
 
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function ChatInterface() {
-  const [messages, setMessages] = useState([]);
+  const { id } = useParams();
+
+  const {
+    messages,
+    isTyping,
+    isLoading,
+    docName,
+    fetchDocument,
+    sendMessage,
+    clearChat,
+  } = useChatStore();
+
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [isLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
-  const replyIdx = useRef(0);
+  const scrollRef = useRef(null);
 
+  // On mount: load document. On unmount: clear chat state.
+  useEffect(() => {
+    if (id) fetchDocument(id);
+    return () => clearChat();
+  }, [id]);
+
+  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const now = () =>
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
-  const sendMessage = async (text = input.trim()) => {
-    if (!text || isTyping) return;
-    setInput("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-
-    const userMsg = { id: Date.now(), role: "user", text, time: now() };
-    setMessages((prev) => [...prev, userMsg]);
-    setIsTyping(true);
-
-    await new Promise((r) => setTimeout(r, 1200 + Math.random() * 800));
-
-    const aiMsg = {
-      id: Date.now() + 1,
-      role: "ai",
-      text: AI_REPLIES[replyIdx.current % AI_REPLIES.length],
-      time: now(),
-    };
-    replyIdx.current++;
-    setIsTyping(false);
-    setMessages((prev) => [...prev, aiMsg]);
-  };
-
-  const handleChipClick = (chip) => {
-    sendMessage(chip);
-  };
+  const handleSend = useCallback(
+    async (text = input.trim()) => {
+      if (!text || isTyping || !id) return;
+      setInput("");
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+      await sendMessage(id, text);
+    },
+    [input, isTyping, id, sendMessage]
+  );
 
   const handleKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      handleSend();
     }
   };
 
@@ -166,6 +159,13 @@ export default function ChatInterface() {
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
   };
+
+  const ext = docName?.split(".").pop()?.toLowerCase() || "pdf";
+  const badgeColor = {
+    pdf:  { bg: "bg-red-50",   border: "border-red-200",   text: "text-red-800"   },
+    docx: { bg: "bg-blue-50",  border: "border-blue-200",  text: "text-blue-800"  },
+    xlsx: { bg: "bg-green-50", border: "border-green-200", text: "text-green-800" },
+  }[ext] || { bg: "bg-gray-50", border: "border-gray-200", text: "text-gray-800" };
 
   return (
     <>
@@ -186,33 +186,38 @@ export default function ChatInterface() {
 
       <div className="flex h-[81.5vh] bg-white font-sans">
 
-
         {/* ── Main ── */}
         <main className="flex-1 flex flex-col overflow-hidden bg-[#F8FAFC]">
 
           {/* Header */}
           <header className="px-5 py-3.5 border-b border-gray-200 bg-white flex-shrink-0">
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-md px-2.5 py-1">
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 2h7l3 3v9H3V2z" stroke="#991B1B" strokeWidth="1.2" />
-                  <path d="M10 2v3h3" stroke="#991B1B" strokeWidth="1.2" />
-                </svg>
-                <span className="text-xs font-medium text-red-800">Project_Proposal.pdf</span>
-              </div>
+              {isLoading ? (
+                <div className="h-7 w-44 rounded-md bg-gray-200 animate-pulse" />
+              ) : (
+                <div className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 border ${badgeColor.bg} ${badgeColor.border}`}>
+                  <FileIcon ext={ext} />
+                  <span className={`text-xs font-medium ${badgeColor.text}`}>
+                    {docName || "Document"}
+                  </span>
+                </div>
+              )}
             </div>
             <p className="text-xs text-gray-400 mt-1">Ask questions about this document</p>
           </header>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 scroll-smooth scrollbar-thin">
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3 scroll-smooth scrollbar-thin"
+          >
             {isLoading ? (
-              <>
+              <div className="flex flex-col gap-5 pt-2">
                 <SkeletonBubble />
                 <SkeletonBubble />
-              </>
+              </div>
             ) : messages.length === 0 ? (
-              <EmptyState onChipClick={handleChipClick} />
+              <EmptyState onChipClick={(chip) => handleSend(chip)} />
             ) : (
               <>
                 {messages.map((msg) => (
@@ -232,14 +237,15 @@ export default function ChatInterface() {
                 value={input}
                 onChange={handleInput}
                 onKeyDown={handleKey}
+                disabled={isLoading}
                 placeholder="Ask about this document..."
                 rows={1}
-                className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl resize-none outline-none focus:border-gray-400 transition-colors bg-[#F8FAFC] text-gray-900 placeholder-gray-400"
+                className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl resize-none outline-none focus:border-gray-400 transition-colors bg-[#F8FAFC] text-gray-900 placeholder-gray-400 disabled:opacity-50"
                 style={{ minHeight: "42px", maxHeight: "120px" }}
               />
               <button
-                onClick={() => sendMessage()}
-                disabled={isTyping || !input.trim()}
+                onClick={() => handleSend()}
+                disabled={isTyping || !input.trim() || isLoading}
                 className="w-9 h-9 flex-shrink-0 flex items-center justify-center bg-gray-900 rounded-lg hover:opacity-80 disabled:opacity-40 transition-all active:scale-95"
               >
                 <SendIcon />
