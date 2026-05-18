@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import useAuthStore from "../store/UserSlice";
 
 const navItems = [
@@ -7,6 +7,8 @@ const navItems = [
     { label: "Upload PDF", path: "/dashboard/upload" },
     { label: "Chat",       path: "/dashboard/chat/:id" },
 ];
+
+
 
 const NavBtn = ({ label, path, active }) => (
     <Link
@@ -23,6 +25,12 @@ export default function DashboardLayout() {
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const { user, logout } = useAuthStore();
+    const navigate = useNavigate()
+
+const handleLogout = () =>{
+    logout();
+    navigate("/");
+}
 
     // "Sarah Chen" → "SC"
     const getInitials = (name = "") =>
@@ -79,7 +87,7 @@ export default function DashboardLayout() {
                     {/* Logout pinned to bottom */}
                     <div className="pt-4 border-t border-gray-800">
                         <button
-                            onClick={logout}
+                            onClick={handleLogout}
                             className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 w-full text-left text-gray-400 hover:text-white hover:bg-gray-800"
                         >
                             <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-gray-600" />
